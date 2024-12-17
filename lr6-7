@@ -1,0 +1,126 @@
+//частная работа (Цыбина Арина)
+#include <iostream>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <string>
+#include <vector>
+
+// Функция для отправки команды POP3 и получения ответа  
+std::vector<std::string> send_pop3_command(SOCKET sock, const std::string& command) {
+    std::vector<std::string> response;
+    std::string command_str = command + "\r\n";
+
+    if (send(sock, command_str.c_str(), command_str.length(), 0) == SOCKET_ERROR) {
+        std::cerr << "send failed: " << WSAGetLastError() << std::endl;
+        return response; // Вернуть пустой ответ в случае ошибки отправки  
+    }
+
+    char buffer[1024];
+    int bytesReceived;
+    do {
+        bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0); // Оставляем место для нулевого символа  
+        if (bytesReceived > 0) {
+            buffer[bytesReceived] = '\0'; // Добавляем нулевой символ в конец строки  
+            response.push_back(buffer);
+        }
+        else if (bytesReceived == 0) {
+            break; // Соединение закрыто  
+        }
+        else {
+            std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
+            break;
+        }
+    } while (bytesReceived > 0 && (response.empty() || response.back().find("+OK") == std::string::npos)); // Проверка на наличие ответа  
+
+    return response;
+}
+
+int main() {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup failed" << std::endl;
+        return 1;
+    }
+
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == INVALID_SOCKET) {
+        std::cerr << "socket failed" << std::endl;
+        WSACleanup(); // Очистка WSA перед выходом  
+        return 1;
+    }
+
+    sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+
+    if (inet_pton(AF_INET, "your_pop3_server_ip", &serverAddr.sin_addr) <= 0) {
+        std::cerr << "Invalid address/ Address not supported" << std::endl;
+        closesocket(sock);
+        WSACleanup();
+        return 1;
+    }
+
+    serverAddr.sin_port = htons(110); // Или 995 для SSL/TLS  
+
+    if (connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+        std::cerr << "connect failed: " << WSAGetLastError() << std::endl;
+        closesocket(sock); // Закрываем сокет  
+        WSACleanup(); // Очистка WSA  
+        return 1;
+    }
+
+    // Авторизация  
+    auto response = send_pop3_command(sock, "Your_name"); // Замените на ваше имя пользователя  
+    if (response.empty() || response.back().find("+OK") == std::string::npos) {
+        std::cerr << "Authentication failed (USER)" << std::endl;
+        closesocket(sock);
+        WSACleanup();
+        return 1;
+    }
+
+    response = send_pop3_command(sock, "Password"); // Замените на ваш пароль  
+    if (response.empty() || response.back().find("+OK") == std::string::npos) {
+        std::cerr << "Authentication failed (PASS)" << std::endl;
+        closesocket(sock);
+        WSACleanup();
+        return 1;
+    }
+
+    // Получение списка писем  
+    response = send_pop3_command(sock, "LIST");
+    if (response.empty() || response.back().find("+OK") == std::string::npos) {
+        std::cerr << "Failed to get mail list" << std::endl;
+        closesocket(sock);
+        WSACleanup();
+        return 1;
+    }
+
+    // Получение и обработка письма  
+    response = send_pop3_command(sock, "RETR 1");
+    if (response.empty() || response.back().find("+OK") == std::string::npos) {
+        std::cerr << "Failed to retrieve mail" << std::endl;
+        closesocket(sock);
+        WSACleanup();
+        return 1;
+    }
+
+    std::string email_data;
+    for (const auto& line : response) {
+        email_data += line;
+    }
+
+    // Упрощенное извлечение текста из письма  
+    size_t start_pos = email_data.find("\r\n\r\n");
+    if (start_pos != std::string::npos) {
+        start_pos += 4; // Пропускаем заголовки  
+        size_t end_pos = email_data.rfind("\r\n.");
+        if (end_pos != std::string::npos) {
+            std::cout << email_data.substr(start_pos, end_pos - start_pos) << std::endl;
+        }
+    }
+
+    send_pop3_command(sock, "QUIT");
+    closesocket(sock);
+    WSACleanup(); // Убедитесь, что WSA очищен  
+
+    return 0;
+}
