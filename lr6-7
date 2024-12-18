@@ -111,7 +111,7 @@ int main() {
     // Упрощенное извлечение текста из письма  
     size_t start_pos = email_data.find("\r\n\r\n");
     if (start_pos != std::string::npos) {
-        start_pos += 4; // Пропускаем заголовки  
+        start_pos += 4;  
         size_t end_pos = email_data.rfind("\r\n.");
         if (end_pos != std::string::npos) {
             std::cout << email_data.substr(start_pos, end_pos - start_pos) << std::endl;
