@@ -12,15 +12,15 @@ std::vector<std::string> send_pop3_command(SOCKET sock, const std::string& comma
 
     if (send(sock, command_str.c_str(), command_str.length(), 0) == SOCKET_ERROR) {
         std::cerr << "send failed: " << WSAGetLastError() << std::endl;
-        return response; // Вернуть пустой ответ в случае ошибки отправки  
+        return response;   
     }
 
     char buffer[1024];
     int bytesReceived;
     do {
-        bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0); // Оставляем место для нулевого символа  
+        bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0); 
         if (bytesReceived > 0) {
-            buffer[bytesReceived] = '\0'; // Добавляем нулевой символ в конец строки  
+            buffer[bytesReceived] = '\0'; 
             response.push_back(buffer);
         }
         else if (bytesReceived == 0) {
@@ -30,7 +30,7 @@ std::vector<std::string> send_pop3_command(SOCKET sock, const std::string& comma
             std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
             break;
         }
-    } while (bytesReceived > 0 && (response.empty() || response.back().find("+OK") == std::string::npos)); // Проверка на наличие ответа  
+    } while (bytesReceived > 0 && (response.empty() || response.back().find("+OK") == std::string::npos)); 
 
     return response;
 }
@@ -69,7 +69,7 @@ int main() {
     }
 
     // Авторизация  
-    auto response = send_pop3_command(sock, "Your_name"); // Замените на ваше имя пользователя  
+    auto response = send_pop3_command(sock, "Your_name"); 
     if (response.empty() || response.back().find("+OK") == std::string::npos) {
         std::cerr << "Authentication failed (USER)" << std::endl;
         closesocket(sock);
@@ -77,7 +77,7 @@ int main() {
         return 1;
     }
 
-    response = send_pop3_command(sock, "Password"); // Замените на ваш пароль  
+    response = send_pop3_command(sock, "Password"); 
     if (response.empty() || response.back().find("+OK") == std::string::npos) {
         std::cerr << "Authentication failed (PASS)" << std::endl;
         closesocket(sock);
@@ -120,7 +120,6 @@ int main() {
 
     send_pop3_command(sock, "QUIT");
     closesocket(sock);
-    WSACleanup(); // Убедитесь, что WSA очищен  
-
+    WSACleanup(); 
     return 0;
 }
